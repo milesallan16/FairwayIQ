@@ -3,45 +3,15 @@ import { api, getAIAnalysis } from '../api.js'
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip } from 'recharts'
 
 const PLAYERS = [
-  { id: 0, name: 'Scottie Scheffler' },
-  { id: 1, name: 'Rory McIlroy' },
-  { id: 2, name: 'Jon Rahm' },
-  { id: 3, name: 'Xander Schauffele' },
-  { id: 4, name: 'Viktor Hovland' },
-  { id: 5, name: 'Collin Morikawa' },
-  { id: 6, name: 'Patrick Cantlay' },
-  { id: 7, name: 'Ludvig Åberg' },
+  { id: 0, name: 'Scottie Scheffler', world_rank: 1, sg_ott: 0.82, sg_app: 1.34, sg_arg: 0.41, sg_putt: 0.18, sg_total: 2.75 },
+  { id: 1, name: 'Rory McIlroy',      world_rank: 2, sg_ott: 1.21, sg_app: 0.98, sg_arg: 0.22, sg_putt: 0.31, sg_total: 2.72 },
+  { id: 2, name: 'Jon Rahm',          world_rank: 3, sg_ott: 0.54, sg_app: 1.18, sg_arg: 0.55, sg_putt: 0.28, sg_total: 2.55 },
+  { id: 3, name: 'Xander Schauffele', world_rank: 4, sg_ott: 0.71, sg_app: 1.02, sg_arg: 0.38, sg_putt: 0.44, sg_total: 2.55 },
+  { id: 4, name: 'Viktor Hovland',    world_rank: 5, sg_ott: 0.88, sg_app: 0.84, sg_arg: 0.18, sg_putt: 0.12, sg_total: 2.02 },
+  { id: 5, name: 'Collin Morikawa',   world_rank: 6, sg_ott: 0.22, sg_app: 1.28, sg_arg: 0.31, sg_putt: 0.08, sg_total: 1.89 },
+  { id: 6, name: 'Patrick Cantlay',   world_rank: 7, sg_ott: 0.38, sg_app: 0.88, sg_arg: 0.52, sg_putt: 0.58, sg_total: 2.36 },
+  { id: 7, name: 'Ludvig Åberg',      world_rank: 8, sg_ott: 0.65, sg_app: 0.92, sg_arg: 0.28, sg_putt: 0.22, sg_total: 2.07 },
 ]
-
-function SGBar({ label, valA, valB, nameA, nameB, weight }) {
-  const max = 1.5
-  const wA = Math.round(Math.max(valA, 0) / max * 100)
-  const wB = Math.round(Math.max(valB, 0) / max * 100)
-  const edge = +(valA - valB).toFixed(2)
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
-        <span>{label} <span style={{ opacity: .6 }}>({Math.round(weight * 100)}% weight)</span></span>
-        <span style={{ color: edge >= 0 ? 'var(--green)' : 'var(--gold)', fontFamily: 'var(--ff-mono)' }}>
-          {edge >= 0 ? nameA.split(' ').pop() : nameB.split(' ').pop()} +{Math.abs(edge).toFixed(2)}
-        </span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--green)', width: 34, textAlign: 'right' }}>{valA.toFixed(2)}</span>
-        <div style={{ flex: 1, display: 'flex', gap: 2, alignItems: 'center' }}>
-          <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
-            <div style={{ width: `${wA}%`, height: 8, background: 'var(--green)', borderRadius: 4 }} />
-          </div>
-          <div style={{ width: 1, height: 16, background: 'var(--border)' }} />
-          <div style={{ flex: 1 }}>
-            <div style={{ width: `${wB}%`, height: 8, background: 'var(--gold)', borderRadius: 4 }} />
-          </div>
-        </div>
-        <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--gold)', width: 34 }}>{valB.toFixed(2)}</span>
-      </div>
-    </div>
-  )
-}
 
 export default function Matchup({ courseId }) {
   const [playerA, setPlayerA] = useState(0)
@@ -59,29 +29,26 @@ export default function Matchup({ courseId }) {
     try {
       const data = await api.getMatchup(playerA, playerB, courseId)
       setResult(data)
-      if (data.player_a && data.player_b) {
-        const pa = data.player_a, pb = data.player_b
-        getAIAnalysis(
-          `Golf matchup at ${data.course_id || courseId}: ${pa.name} (SG Total +${pa.sg_total}, SG App +${pa.sg_app}, win prob ${data.win_probability_a}%) vs ${pb.name} (SG Total +${pb.sg_total}, SG App +${pb.sg_app}, win prob ${data.win_probability_b}%). Explain who wins and why in 3-4 sentences.`
-        ).then(setAiText)
-      }
+      getAIAnalysis(
+        `Golf matchup at ${data.course}: ${data.player_a} (win prob ${Math.round(data.prob_a*100)}%, fit ${data.fit_a}) vs ${data.player_b} (win prob ${Math.round(data.prob_b*100)}%, fit ${data.fit_b}). Model pick: ${data.model_pick}. Key edge: ${data.key_edges?.[0]?.category} (+${data.key_edges?.[0]?.weighted_edge?.toFixed(3)}). Explain who wins and why in 3 sentences.`
+      ).then(setAiText)
     } catch (e) { console.error(e) }
     setLoading(false)
   }
 
-  const radarData = result?.player_a ? [
-    { cat: 'OTT',   A: result.player_a.sg_ott,   B: result.player_b.sg_ott },
-    { cat: 'APP',   A: result.player_a.sg_app,   B: result.player_b.sg_app },
-    { cat: 'ARG',   A: result.player_a.sg_arg,   B: result.player_b.sg_arg },
-    { cat: 'PUTT',  A: result.player_a.sg_putt,  B: result.player_b.sg_putt },
-    { cat: 'Total', A: result.player_a.sg_total, B: result.player_b.sg_total },
+  const pa = PLAYERS.find(p => p.id === playerA)
+  const pb = PLAYERS.find(p => p.id === playerB)
+
+  const radarData = pa && pb ? [
+    { cat: 'OTT',   A: pa.sg_ott,   B: pb.sg_ott },
+    { cat: 'APP',   A: pa.sg_app,   B: pb.sg_app },
+    { cat: 'ARG',   A: pa.sg_arg,   B: pb.sg_arg },
+    { cat: 'PUTT',  A: pa.sg_putt,  B: pb.sg_putt },
+    { cat: 'Total', A: pa.sg_total, B: pb.sg_total },
   ] : []
 
-  const pa = result?.player_a
-  const pb = result?.player_b
-  const probA = result?.win_probability_a ?? 50
-  const probB = result?.win_probability_b ?? 50
-  const modelPick = result?.model_pick
+  const probA = result ? Math.round(result.prob_a * 100) : 50
+  const probB = result ? Math.round(result.prob_b * 100) : 50
 
   return (
     <div>
@@ -103,12 +70,12 @@ export default function Matchup({ courseId }) {
 
       {loading && <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}><span className="spinner" />Running matchup model...</div>}
 
-      {!loading && pa && pb && (
+      {!loading && result && pa && pb && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-            {[{p: pa, prob: probA, color: 'var(--green)', bg: 'var(--green-light)', i: 0},
-              {p: pb, prob: probB, color: 'var(--gold)',  bg: 'var(--gold-light)',  i: 1}].map(({p, prob, color, bg}) => (
-              <div key={p.name} className="card" style={{ borderColor: p.name === modelPick ? color : 'var(--border)', borderWidth: p.name === modelPick ? 2 : 0.5 }}>
+            {[{p: pa, prob: probA, color: 'var(--green)', bg: 'var(--green-light)', fit: result.fit_a},
+              {p: pb, prob: probB, color: 'var(--gold)',  bg: 'var(--gold-light)',  fit: result.fit_b}].map(({p, prob, color, bg, fit}) => (
+              <div key={p.name} className="card" style={{ borderColor: p.name === result.model_pick ? color : 'var(--border)', borderWidth: p.name === result.model_pick ? 2 : 0.5 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                   <div style={{ width: 40, height: 40, borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 500, fontSize: 13, color }}>
                     {p.name.split(' ').map(w => w[0]).join('').slice(0,2)}
@@ -123,8 +90,8 @@ export default function Matchup({ courseId }) {
                 <div style={{ height: 6, background: '#f0f4f8', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
                   <div style={{ height: '100%', width: `${prob}%`, background: color, borderRadius: 3 }} />
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Fit Score: <span style={{ fontFamily: 'var(--ff-mono)', color: 'var(--text)' }}>{p.fit_score}</span></div>
-                {p.name === modelPick && (
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Fit Score: <span style={{ fontFamily: 'var(--ff-mono)', color: 'var(--text)' }}>{fit}</span></div>
+                {p.name === result.model_pick && (
                   <div style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 20, background: color, color: 'white' }}>Model Pick</div>
                 )}
               </div>
@@ -134,14 +101,35 @@ export default function Matchup({ courseId }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
             <div className="card">
               <div className="card-title">SG Category Breakdown</div>
-              {result.sg_breakdown?.map(cat => (
-                <SGBar key={cat.category}
-                  label={cat.category}
-                  valA={cat.player_a_val} valB={cat.player_b_val}
-                  nameA={pa.name} nameB={pb.name}
-                  weight={cat.course_weight || 0.25}
-                />
-              ))}
+              {result.key_edges?.map(cat => {
+                const max = 1.5
+                const wA = Math.round(Math.max(cat.a, 0) / max * 100)
+                const wB = Math.round(Math.max(cat.b, 0) / max * 100)
+                const edge = cat.edge
+                return (
+                  <div key={cat.category} style={{ marginBottom: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                      <span>{cat.category} <span style={{ opacity: .6 }}>({Math.round(cat.weight * 100)}%)</span></span>
+                      <span style={{ color: edge >= 0 ? 'var(--green)' : 'var(--gold)', fontFamily: 'var(--ff-mono)' }}>
+                        {cat.advantage.split(' ').pop()} +{Math.abs(edge).toFixed(2)}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--green)', width: 34, textAlign: 'right' }}>{cat.a.toFixed(2)}</span>
+                      <div style={{ flex: 1, display: 'flex', gap: 2, alignItems: 'center' }}>
+                        <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+                          <div style={{ width: `${wA}%`, height: 8, background: 'var(--green)', borderRadius: 4 }} />
+                        </div>
+                        <div style={{ width: 1, height: 16, background: 'var(--border)' }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ width: `${wB}%`, height: 8, background: 'var(--gold)', borderRadius: 4 }} />
+                        </div>
+                      </div>
+                      <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--gold)', width: 34 }}>{cat.b.toFixed(2)}</span>
+                    </div>
+                  </div>
+                )
+              })}
               <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 11 }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--green)', display: 'inline-block' }} />{pa.name.split(' ').pop()}</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--gold)', display: 'inline-block' }} />{pb.name.split(' ').pop()}</span>
