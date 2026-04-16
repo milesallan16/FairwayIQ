@@ -8,12 +8,11 @@ async function get(path) {
 
 export const api = {
   getPlayers:      ()             => get('/players/'),
-  getField:        (id)           => get(`/players/field/${id}`),
   getCourses:      ()             => get('/courses/'),
   getCourse:       (id)           => get(`/courses/${id}`),
-  getLeaderboard:  (courseId)     => get(`/matchup/leaderboard?course_id=${courseId}`),
-  getMatchup:      (a,b,course)   => get(`/matchup/?player_a_id=${a}&player_b_id=${b}&course_id=${course}`),
-  getBestBets:     (courseId)     => get(`/bets/?course_id=${courseId}`),
+  getLeaderboard:  (courseId)     => get(`/predictions/${courseId}`),
+  getMatchup:      (a,b,course)   => get(`/matchup/${course}/${a}/${b}`),
+  getBestBets:     (courseId)     => get(`/bets/${courseId}`),
   runBacktest:     (courseId)     => get(`/backtest/?course_id=${courseId}`),
   optimizeWeights: (courseId)     => get(`/backtest/optimize?course_id=${courseId}`),
 }
