@@ -3,14 +3,14 @@ import { api, getAIAnalysis } from '../api.js'
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip } from 'recharts'
 
 const PLAYERS = [
-  { id: 1, name: 'Scottie Scheffler' },
-  { id: 2, name: 'Rory McIlroy' },
-  { id: 3, name: 'Jon Rahm' },
-  { id: 4, name: 'Xander Schauffele' },
-  { id: 5, name: 'Viktor Hovland' },
-  { id: 6, name: 'Collin Morikawa' },
-  { id: 7, name: 'Patrick Cantlay' },
-  { id: 8, name: 'Ludvig Åberg' },
+  { id: 0, name: 'Scottie Scheffler' },
+  { id: 1, name: 'Rory McIlroy' },
+  { id: 2, name: 'Jon Rahm' },
+  { id: 3, name: 'Xander Schauffele' },
+  { id: 4, name: 'Viktor Hovland' },
+  { id: 5, name: 'Collin Morikawa' },
+  { id: 6, name: 'Patrick Cantlay' },
+  { id: 7, name: 'Ludvig Åberg' },
 ]
 
 function SGBar({ label, valA, valB, nameA, nameB, weight }) {
@@ -44,10 +44,10 @@ function SGBar({ label, valA, valB, nameA, nameB, weight }) {
 }
 
 export default function Matchup({ courseId }) {
-  const [playerA, setPlayerA] = useState(1)
-  const [playerB, setPlayerB] = useState(2)
-  const [result, setResult] = useState(null)
-  const [aiText, setAiText] = useState('')
+  const [playerA, setPlayerA] = useState(0)
+  const [playerB, setPlayerB] = useState(1)
+  const [result, setResult]   = useState(null)
+  const [aiText, setAiText]   = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => { runMatchup() }, [playerA, playerB, courseId])
@@ -59,25 +59,32 @@ export default function Matchup({ courseId }) {
     try {
       const data = await api.getMatchup(playerA, playerB, courseId)
       setResult(data)
-      const pa = data.player_a, pb = data.player_b
-      getAIAnalysis(
-        `Golf matchup at ${data.course}: ${pa.name} (fit score ${pa.fit_score}, SG Total +${pa.sg_stats.sg_total}, SG App +${pa.sg_stats.sg_app}) vs ${pb.name} (fit score ${pb.fit_score}, SG Total +${pb.sg_stats.sg_total}, SG App +${pb.sg_stats.sg_app}). Model: ${pa.name} ${pa.win_probability}% vs ${pb.name} ${pb.win_probability}%. Key edge: ${data.key_advantage_category} (+${data.key_advantage_edge}). Explain who wins and why in 3-4 sentences.`
-      ).then(setAiText)
+      if (data.player_a && data.player_b) {
+        const pa = data.player_a, pb = data.player_b
+        getAIAnalysis(
+          `Golf matchup at ${data.course_id || courseId}: ${pa.name} (SG Total +${pa.sg_total}, SG App +${pa.sg_app}, win prob ${data.win_probability_a}%) vs ${pb.name} (SG Total +${pb.sg_total}, SG App +${pb.sg_app}, win prob ${data.win_probability_b}%). Explain who wins and why in 3-4 sentences.`
+        ).then(setAiText)
+      }
     } catch (e) { console.error(e) }
     setLoading(false)
   }
 
-  const radarData = result ? [
-    { cat: 'OTT',  A: result.player_a.sg_stats.sg_ott,  B: result.player_b.sg_stats.sg_ott },
-    { cat: 'APP',  A: result.player_a.sg_stats.sg_app,  B: result.player_b.sg_stats.sg_app },
-    { cat: 'ARG',  A: result.player_a.sg_stats.sg_arg,  B: result.player_b.sg_stats.sg_arg },
-    { cat: 'PUTT', A: result.player_a.sg_stats.sg_putt, B: result.player_b.sg_stats.sg_putt },
-    { cat: 'Total',A: result.player_a.sg_stats.sg_total,B: result.player_b.sg_stats.sg_total },
+  const radarData = result?.player_a ? [
+    { cat: 'OTT',   A: result.player_a.sg_ott,   B: result.player_b.sg_ott },
+    { cat: 'APP',   A: result.player_a.sg_app,   B: result.player_b.sg_app },
+    { cat: 'ARG',   A: result.player_a.sg_arg,   B: result.player_b.sg_arg },
+    { cat: 'PUTT',  A: result.player_a.sg_putt,  B: result.player_b.sg_putt },
+    { cat: 'Total', A: result.player_a.sg_total, B: result.player_b.sg_total },
   ] : []
+
+  const pa = result?.player_a
+  const pb = result?.player_b
+  const probA = result?.win_probability_a ?? 50
+  const probB = result?.win_probability_b ?? 50
+  const modelPick = result?.model_pick
 
   return (
     <div>
-      {/* Player selectors */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 40px 1fr', gap: 10, alignItems: 'center', marginBottom: '1.25rem' }}>
         <div style={{ position: 'relative' }}>
           <select value={playerA} onChange={e => setPlayerA(+e.target.value)}>
@@ -96,98 +103,65 @@ export default function Matchup({ courseId }) {
 
       {loading && <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}><span className="spinner" />Running matchup model...</div>}
 
-      {!loading && result && (
+      {!loading && pa && pb && (
         <>
-          {/* Win probability cards */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-            {[result.player_a, result.player_b].map((p, i) => {
-              const isWinner = p.name === result.model_pick
-              const color = i === 0 ? 'var(--green)' : 'var(--gold)'
-              return (
-                <div key={p.id} className="card" style={{ borderColor: isWinner ? 'var(--green)' : 'var(--border)', borderWidth: isWinner ? 2 : 0.5 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                    <div style={{
-                      width: 40, height: 40, borderRadius: '50%',
-                      background: i === 0 ? 'var(--green-light)' : 'var(--gold-light)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontWeight: 500, fontSize: 13, color
-                    }}>
-                      {p.name.split(' ').map(w => w[0]).join('').slice(0, 2)}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 500 }}>{p.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>World #{p.world_rank}</div>
-                    </div>
+            {[{p: pa, prob: probA, color: 'var(--green)', bg: 'var(--green-light)', i: 0},
+              {p: pb, prob: probB, color: 'var(--gold)',  bg: 'var(--gold-light)',  i: 1}].map(({p, prob, color, bg}) => (
+              <div key={p.name} className="card" style={{ borderColor: p.name === modelPick ? color : 'var(--border)', borderWidth: p.name === modelPick ? 2 : 0.5 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 500, fontSize: 13, color }}>
+                    {p.name.split(' ').map(w => w[0]).join('').slice(0,2)}
                   </div>
-                  <div style={{ fontFamily: 'var(--ff-mono)', fontSize: 32, fontWeight: 500, color }}>{p.win_probability}%</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8 }}>win probability</div>
-                  <div style={{ height: 6, background: '#f0f4f8', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
-                    <div style={{ height: '100%', width: `${p.win_probability}%`, background: color, borderRadius: 3 }} />
+                  <div>
+                    <div style={{ fontWeight: 500 }}>{p.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>World #{p.world_rank}</div>
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Fit Score: <span style={{ fontFamily: 'var(--ff-mono)', color: 'var(--text-primary)' }}>{p.fit_score}</span></div>
-                  {isWinner && (
-                    <div style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 20, background: 'var(--green)', color: 'white' }}>
-                      Model Pick
-                    </div>
-                  )}
                 </div>
-              )
-            })}
+                <div style={{ fontFamily: 'var(--ff-mono)', fontSize: 32, fontWeight: 500, color }}>{prob}%</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8 }}>win probability</div>
+                <div style={{ height: 6, background: '#f0f4f8', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
+                  <div style={{ height: '100%', width: `${prob}%`, background: color, borderRadius: 3 }} />
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Fit Score: <span style={{ fontFamily: 'var(--ff-mono)', color: 'var(--text)' }}>{p.fit_score}</span></div>
+                {p.name === modelPick && (
+                  <div style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 20, background: color, color: 'white' }}>Model Pick</div>
+                )}
+              </div>
+            ))}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-            {/* SG bars */}
             <div className="card">
               <div className="card-title">SG Category Breakdown</div>
-              {result.sg_breakdown.map(cat => (
+              {result.sg_breakdown?.map(cat => (
                 <SGBar key={cat.category}
                   label={cat.category}
                   valA={cat.player_a_val} valB={cat.player_b_val}
-                  nameA={result.player_a.name} nameB={result.player_b.name}
-                  weight={cat.course_weight}
+                  nameA={pa.name} nameB={pb.name}
+                  weight={cat.course_weight || 0.25}
                 />
               ))}
               <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 11 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--green)', display: 'inline-block' }} />{result.player_a.name.split(' ').pop()}</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--gold)', display: 'inline-block' }} />{result.player_b.name.split(' ').pop()}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--green)', display: 'inline-block' }} />{pa.name.split(' ').pop()}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--gold)', display: 'inline-block' }} />{pb.name.split(' ').pop()}</span>
               </div>
             </div>
 
-            {/* Radar */}
             <div className="card">
               <div className="card-title">Radar Comparison</div>
               <ResponsiveContainer width="100%" height={200}>
                 <RadarChart data={radarData}>
                   <PolarGrid stroke="#e2e8f0" />
                   <PolarAngleAxis dataKey="cat" tick={{ fontSize: 11 }} />
-                  <Radar name={result.player_a.name.split(' ').pop()} dataKey="A" stroke="#1a7a4a" fill="#1a7a4a" fillOpacity={0.25} />
-                  <Radar name={result.player_b.name.split(' ').pop()} dataKey="B" stroke="#b8860b" fill="#b8860b" fillOpacity={0.20} />
+                  <Radar name={pa.name.split(' ').pop()} dataKey="A" stroke="#1a7a4a" fill="#1a7a4a" fillOpacity={0.25} />
+                  <Radar name={pb.name.split(' ').pop()} dataKey="B" stroke="#b8860b" fill="#b8860b" fillOpacity={0.20} />
                   <Tooltip contentStyle={{ fontSize: 11 }} />
                 </RadarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Key stats summary */}
-          <div className="card" style={{ marginBottom: '1rem' }}>
-            <div className="card-title">Advantage Summary</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-              {result.sg_breakdown.map(cat => {
-                const winner = cat.player_a_val >= cat.player_b_val ? result.player_a.name : result.player_b.name
-                const edge = Math.abs(cat.weighted_edge).toFixed(3)
-                const isA = cat.player_a_val >= cat.player_b_val
-                return (
-                  <div key={cat.category} style={{ background: '#f4f6f8', borderRadius: 8, padding: '0.75rem' }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>{cat.category}</div>
-                    <div style={{ fontWeight: 500, fontSize: 13, color: isA ? 'var(--green)' : 'var(--gold)' }}>{winner.split(' ').pop()}</div>
-                    <div style={{ fontFamily: 'var(--ff-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>+{edge} weighted</div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* AI Analysis */}
           <div className="card">
             <div className="card-title">AI Matchup Analysis</div>
             {aiText
