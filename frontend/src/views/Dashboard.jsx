@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api, getAIAnalysis } from '../api.js'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 const TIER_BADGE = {
   'Top 5':    'badge badge-green',
@@ -8,8 +8,6 @@ const TIER_BADGE = {
   'Top 20':   'badge badge-gray',
   'Cut Risk': 'badge badge-red',
 }
-
-const SG_COLORS = { sg_ott: '#1a7a4a', sg_app: '#2da65e', sg_arg: '#b8860b', sg_putt: '#d4a017' }
 
 function WeightBar({ label, pct, color }) {
   return (
@@ -34,65 +32,68 @@ function MetricCard({ label, value, sub, subColor }) {
 }
 
 export default function Dashboard({ courseId }) {
-  const [leaderboard, setLeaderboard] = useState([])
-  const [course, setCourse] = useState(null)
-  const [aiText, setAiText] = useState('')
+  const [field, setField]     = useState([])
+  const [course, setCourse]   = useState(null)
+  const [aiText, setAiText]   = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
     setAiText('')
-    Promise.all([api.getLeaderboard(courseId), api.getCourse(courseId)])
-      .then(([lb, c]) => {
-        setLeaderboard(lb.leaderboard || [])
+    api.getLeaderboard(courseId)
+      .then(data => {
+        const c = data.course
+        const f = data.field || []
         setCourse(c)
+        setField(f)
         setLoading(false)
         getAIAnalysis(
-          `Analyze ${c.name} (${c.venue}). SG weights: Approach ${Math.round(c.sg_weights.sg_app*100)}%, OTT ${Math.round(c.sg_weights.sg_ott*100)}%, Around Green ${Math.round(c.sg_weights.sg_arg*100)}%, Putting ${Math.round(c.sg_weights.sg_putt*100)}%. Green type: ${c.green_type}. What player profile wins here and what SG category is most decisive?`
+          `Analyze ${c.name} for PGA Tour performance prediction. Key metric: ${c.key_metric}. Green type: ${c.green_type}. Yardage: ${c.yardage}. Course weights: Approach ${Math.round(c.weight_app*100)}%, OTT ${Math.round(c.weight_ott*100)}%, Around Green ${Math.round(c.weight_arg*100)}%, Putting ${Math.round(c.weight_putt*100)}%. What player profile wins here and why?`
         ).then(setAiText)
       })
-      .catch(() => setLoading(false))
+      .catch(e => { console.error(e); setLoading(false) })
   }, [courseId])
 
-  const chartData = leaderboard.slice(0, 6).map(p => ({
-    name: p.name.split(' ').pop(),
-    OTT:  +p.sg_stats.sg_ott.toFixed(2),
-    APP:  +p.sg_stats.sg_app.toFixed(2),
-    ARG:  +p.sg_stats.sg_arg.toFixed(2),
-    PUTT: +p.sg_stats.sg_putt.toFixed(2),
-  }))
-
-  const top = leaderboard[0]
-  const fieldAvg = leaderboard.length
-    ? +(leaderboard.reduce((s, p) => s + p.sg_stats.sg_total, 0) / leaderboard.length).toFixed(2)
+  const top = field[0]
+  const fieldAvg = field.length
+    ? +(field.reduce((s, p) => s + p.sg_total, 0) / field.length).toFixed(2)
     : 0
+
+  const chartData = field.slice(0, 6).map(p => ({
+    name: p.player_name.split(' ').pop(),
+    OTT:  +p.sg_ott.toFixed(2),
+    APP:  +p.sg_app.toFixed(2),
+    ARG:  +p.sg_arg.toFixed(2),
+    PUTT: +p.sg_putt.toFixed(2),
+  }))
 
   return (
     <div>
-      {loading && <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}><span className="spinner" />Loading predictions...</div>}
+      {loading && (
+        <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+          <span className="spinner" />Loading predictions...
+        </div>
+      )}
 
       {!loading && course && (
         <>
-          {/* Metric row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 10, marginBottom: '1.25rem' }}>
-            <MetricCard label="Top Fit Score" value={top?.fit_score ?? '—'} sub={top?.name} />
-            <MetricCard label="Field SG Avg" value={`+${fieldAvg}`} sub="vs Tour average" subColor="var(--green)" />
-            <MetricCard label="Key Metric" value={course.key_metric} sub="Highest course weight" />
-            <MetricCard label="Green Type" value={course.green_type} sub={`${course.yardage?.toLocaleString()} yds`} />
+            <MetricCard label="Top Fit Score" value={top?.fit_score ?? '—'} sub={top?.player_name} />
+            <MetricCard label="Field SG Avg"  value={`+${fieldAvg}`} sub="vs Tour average" subColor="var(--green)" />
+            <MetricCard label="Key Metric"    value={course.key_metric} sub="Highest course weight" />
+            <MetricCard label="Green Type"    value={course.green_type} sub={`${course.yardage?.toLocaleString()} yds`} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-            {/* Weights card */}
             <div className="card">
               <div className="card-title">Course Fit Weighting</div>
-              <WeightBar label="Off-the-Tee"   pct={course.sg_weights.sg_ott}  color="#1a7a4a" />
-              <WeightBar label="Approach"       pct={course.sg_weights.sg_app}  color="#2da65e" />
-              <WeightBar label="Around Green"   pct={course.sg_weights.sg_arg}  color="#b8860b" />
-              <WeightBar label="Putting"        pct={course.sg_weights.sg_putt} color="#d4a017" />
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: '0.75rem', lineHeight: 1.5 }}>{course.course_note}</div>
+              <WeightBar label="Off-the-Tee"  pct={course.weight_ott}  color="#1a7a4a" />
+              <WeightBar label="Approach"      pct={course.weight_app}  color="#2da65e" />
+              <WeightBar label="Around Green"  pct={course.weight_arg}  color="#b8860b" />
+              <WeightBar label="Putting"       pct={course.weight_putt} color="#d4a017" />
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: '0.75rem', lineHeight: 1.5 }}>{course.description}</div>
             </div>
 
-            {/* SG chart */}
             <div className="card">
               <div className="card-title">SG Breakdown — Top 6 Players</div>
               <ResponsiveContainer width="100%" height={200}>
@@ -116,7 +117,6 @@ export default function Dashboard({ courseId }) {
             </div>
           </div>
 
-          {/* Leaderboard */}
           <div className="card" style={{ marginBottom: '1rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <div className="card-title" style={{ margin: 0 }}>Predicted Leaderboard</div>
@@ -134,30 +134,32 @@ export default function Dashboard({ courseId }) {
                     <th>APP</th>
                     <th>ARG</th>
                     <th>PUTT</th>
+                    <th>Top 5%</th>
                     <th>Tier</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {leaderboard.map((p, i) => (
+                  {field.map((p, i) => (
                     <tr key={p.player_id}>
                       <td style={{ fontFamily: 'var(--ff-mono)', fontWeight: 500 }}>{i + 1}</td>
                       <td>
-                        <div style={{ fontWeight: 500, fontSize: 13 }}>{p.name}</div>
+                        <div style={{ fontWeight: 500, fontSize: 13 }}>{p.player_name}</div>
                         <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>World #{p.world_rank}</div>
                       </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <div style={{ width: 60, height: 5, background: '#f0f4f8', borderRadius: 3, overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${p.fit_score}%`, background: 'var(--green)', borderRadius: 3 }} />
+                            <div style={{ height: '100%', width: `${Math.min(p.fit_score * 3, 100)}%`, background: 'var(--green)', borderRadius: 3 }} />
                           </div>
                           <span style={{ fontFamily: 'var(--ff-mono)', fontSize: 12 }}>{p.fit_score}</span>
                         </div>
                       </td>
-                      <td style={{ fontFamily: 'var(--ff-mono)', fontSize: 13, color: 'var(--green)' }}>+{p.projected_sg_total}</td>
-                      <td style={{ fontFamily: 'var(--ff-mono)', fontSize: 12 }}>{p.sg_stats.sg_ott.toFixed(2)}</td>
-                      <td style={{ fontFamily: 'var(--ff-mono)', fontSize: 12 }}>{p.sg_stats.sg_app.toFixed(2)}</td>
-                      <td style={{ fontFamily: 'var(--ff-mono)', fontSize: 12 }}>{p.sg_stats.sg_arg.toFixed(2)}</td>
-                      <td style={{ fontFamily: 'var(--ff-mono)', fontSize: 12 }}>{p.sg_stats.sg_putt.toFixed(2)}</td>
+                      <td style={{ fontFamily: 'var(--ff-mono)', fontSize: 13, color: 'var(--green)' }}>+{p.projected_sg}</td>
+                      <td style={{ fontFamily: 'var(--ff-mono)', fontSize: 12 }}>{p.sg_ott.toFixed(2)}</td>
+                      <td style={{ fontFamily: 'var(--ff-mono)', fontSize: 12 }}>{p.sg_app.toFixed(2)}</td>
+                      <td style={{ fontFamily: 'var(--ff-mono)', fontSize: 12 }}>{p.sg_arg.toFixed(2)}</td>
+                      <td style={{ fontFamily: 'var(--ff-mono)', fontSize: 12 }}>{p.sg_putt.toFixed(2)}</td>
+                      <td style={{ fontFamily: 'var(--ff-mono)', fontSize: 12, color: 'var(--green)' }}>{Math.round(p.prob_top5 * 100)}%</td>
                       <td><span className={TIER_BADGE[p.tier] || 'badge badge-gray'}>{p.tier}</span></td>
                     </tr>
                   ))}
@@ -166,7 +168,6 @@ export default function Dashboard({ courseId }) {
             </div>
           </div>
 
-          {/* AI Analysis */}
           <div className="card">
             <div className="card-title">AI Course Analysis</div>
             {aiText
