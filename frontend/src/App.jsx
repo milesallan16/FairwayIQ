@@ -12,16 +12,12 @@ const TABS = [
 ]
 
 const COURSES = [
-  { id: 'masters',  label: 'The Masters — Augusta National' },
-  { id: 'players',  label: 'The Players — TPC Sawgrass' },
-  { id: 'pebble',   label: 'US Open — Pebble Beach' },
-  { id: 'torrey',   label: 'Farmers — Torrey Pines' },
-  { id: 'memorial', label: 'Memorial — Muirfield Village' },
+  { id: 'rbc', label: 'RBC Heritage — Harbour Town' },
 ]
 
 export default function App() {
   const [tab, setTab] = useState('dashboard')
-  const [courseId, setCourseId] = useState('masters')
+  const [courseId, setCourseId] = useState('rbc')
 
   return (
     <div style={{ minHeight: '100vh', background: '#f4f6f8' }}>
