@@ -1,0 +1,109 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --green: #1a7a4a;
+  --green-light: #e8f5ee;
+  --green-mid: #2da65e;
+  --gold: #b8860b;
+  --gold-light: #fef9e7;
+  --slate: #1e2832;
+  --muted: #6b7a8d;
+  --border: #e2e8f0;
+  --bg: #ffffff;
+  --bg-secondary: #f4f6f8;
+  --text: #1a202c;
+  --text-secondary: #6b7a8d;
+  --ff-display: 'Playfair Display', serif;
+  --ff-body: 'DM Sans', sans-serif;
+  --ff-mono: 'DM Mono', monospace;
+}
+
+body {
+  font-family: var(--ff-body);
+  background: var(--bg-secondary);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 15px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 3px; }
+
+/* Utility */
+.font-mono { font-family: var(--ff-mono); }
+.font-display { font-family: var(--ff-display); }
+.text-green { color: var(--green); }
+.text-gold { color: var(--gold); }
+.text-muted { color: var(--text-secondary); }
+
+/* Badge */
+.badge {
+  display: inline-flex; align-items: center;
+  font-size: 11px; font-weight: 500;
+  padding: 2px 8px; border-radius: 20px;
+  font-family: var(--ff-mono);
+}
+.badge-green { background: var(--green-light); color: var(--green); }
+.badge-gold  { background: var(--gold-light);  color: var(--gold); }
+.badge-red   { background: #fde8e6; color: #c0392b; }
+.badge-gray  { background: #f0f4f8; color: var(--muted); }
+
+/* Card */
+.card {
+  background: white;
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+.card-title {
+  font-size: 11px; font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: .5px;
+  margin-bottom: 1rem;
+}
+
+/* Table */
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table th {
+  text-align: left; font-size: 11px; font-weight: 500;
+  color: var(--text-secondary); text-transform: uppercase; letter-spacing: .4px;
+  padding: 6px 8px; border-bottom: 0.5px solid var(--border);
+}
+.table td {
+  padding: 9px 8px; border-bottom: 0.5px solid var(--border);
+  vertical-align: middle;
+}
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody tr:hover td { background: var(--bg-secondary); }
+
+/* Select */
+select {
+  width: 100%; padding: 8px 32px 8px 12px;
+  border: 0.5px solid var(--border); border-radius: 8px;
+  font-size: 13px; font-family: var(--ff-body);
+  background: white; color: var(--text);
+  appearance: none; cursor: pointer;
+}
+
+/* Button */
+.btn {
+  padding: 8px 16px; border-radius: 8px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  font-family: var(--ff-body); border: none;
+  transition: opacity .2s;
+}
+.btn-green { background: var(--green); color: white; }
+.btn-green:hover { opacity: .9; }
+.btn-outline { background: white; border: 0.5px solid var(--border); color: var(--text); }
+.btn-outline:hover { background: var(--bg-secondary); }
+
+/* Spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid var(--border); border-top-color: var(--green);
+  border-radius: 50%; animation: spin .8s linear infinite;
+  vertical-align: middle; margin-right: 6px;
+}
